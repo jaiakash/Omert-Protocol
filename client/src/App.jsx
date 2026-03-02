@@ -166,10 +166,14 @@ function App() {
             {roomState?.phase === 'Lobby' ? (
               <div style={{ textAlign: 'center', padding: '3rem' }}>
                 <p style={{ marginBottom: '2rem', color: 'var(--text-dim)', fontSize: '1.1rem' }}>Minimum 4 operatives required for protocol initiation.</p>
-                <button className="btn btn-primary" style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', letterSpacing: '2px' }} onClick={() => startGame(currentRoom)}>
-                  <Play size={20} inline style={{ marginRight: '10px' }} />
-                  INITIATE PROTOCOL
-                </button>
+                {roomState.isYourTurn ? (
+                  <button className="btn btn-primary" disabled={!roomState.canAdvance} style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', opacity: roomState.canAdvance ? 1 : 0.5 }} onClick={() => startGame(currentRoom)}>
+                    <Play size={20} inline style={{ marginRight: '10px' }} />
+                    INITIATE PROTOCOL
+                  </button>
+                ) : (
+                  <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>AWAITING COMMAND FROM OVERLORD</div>
+                )}
               </div>
             ) : roomState?.phase === 'Game Over' ? (
               <div style={{ textAlign: 'center', padding: '3rem' }}>
@@ -181,21 +185,34 @@ function App() {
                 <div style={{ marginBottom: '2rem' }}>
                   {roomState?.phase.includes('Night') ? <Skull size={64} color="var(--primary)" /> : <Users size={64} color="var(--secondary)" />}
                 </div>
-                <h2 style={{ marginBottom: '1rem' }}>{roomState?.phase === 'Night (Hidden Actions)' ? 'EXTRACT TARGETS' : 'IDENTIFY INFILTRATORS'}</h2>
+
+                <h2 style={{ marginBottom: '1rem' }}>
+                  {roomState.isYourTurn ? 'YOUR ACTION REQUIRED' : 'AWAITING OPERATIVE ACTION'}
+                </h2>
+
                 <p style={{ maxWidth: '500px', color: 'var(--text-dim)', marginBottom: '2rem' }}>
-                  {roomState?.phase === 'Night (Hidden Actions)' ? 'The night obscures all movements. Use your tools to gain the upper hand.' : 'Discuss the evidence. Cast your vote carefully—the wrong choice could be fatal.'}
+                  {roomState.isYourTurn
+                    ? "The protocol relies on your specific designation. Take your action to proceed."
+                    : "The system is locked while other operatives finalize their hidden maneuvers."}
                 </p>
 
                 {roomState?.investigation && (
-                  <div className="card" style={{ background: '#000', border: '1px solid var(--secondary)', color: 'var(--secondary)', padding: '1rem' }}>
+                  <div className="card" style={{ background: '#000', border: '1px solid var(--secondary)', color: 'var(--secondary)', padding: '1rem', width: '100%' }}>
                     <ShieldAlert size={16} inline style={{ marginRight: '8px' }} />
                     INTEL REVEALED: Operative is <strong>{roomState.investigation.role.toUpperCase()}</strong>
                   </div>
                 )}
 
-                <button className="btn btn-primary" onClick={() => nextPhase(currentRoom)} style={{ marginTop: '2rem' }}>
-                  ADVANCE CLOCK {'->'}
-                </button>
+                {roomState.isYourTurn && (
+                  <button
+                    className="btn btn-primary"
+                    disabled={!roomState.canAdvance}
+                    onClick={() => nextPhase(currentRoom)}
+                    style={{ marginTop: '2rem', opacity: roomState.canAdvance ? 1 : 0.5 }}
+                  >
+                    ADVANCE CLOCK {'->'}
+                  </button>
+                )}
               </div>
             )}
           </div>

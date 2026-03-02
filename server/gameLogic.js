@@ -12,7 +12,9 @@ const ROLES = {
 
 const PHASES = {
     LOBBY: 'Lobby',
-    NIGHT_ACTION: 'Night (Hidden Actions)',
+    NIGHT_MAFIA: 'Night (Mafia Action)',
+    NIGHT_DOCTOR: 'Night (Doctor Action)',
+    NIGHT_DETECTIVE: 'Night (Detective Action)',
     DAY_TALKING: 'Day (Discussion)',
     DAY_VOTING: 'Day (Voting)',
     GAME_OVER: 'Game Over',
@@ -70,16 +72,14 @@ class GameState {
         const player = this.players.find(p => p.id === playerId);
         if (!player || !player.isAlive) return;
 
-        if (this.phase === PHASES.NIGHT_ACTION) {
-            if (player.role === ROLES.MAFIA) {
-                this.nightActions.mafiaAction[playerId] = targetId;
-            } else if (player.role === ROLES.DOCTOR) {
-                this.nightActions.doctorTarget = targetId;
-            } else if (player.role === ROLES.DETECTIVE) {
-                this.nightActions.detectiveTarget = targetId;
-                const target = this.players.find(p => p.id === targetId);
-                this.nightActions.detectiveResult = target ? { id: targetId, role: target.role } : null;
-            }
+        if (this.phase === PHASES.NIGHT_MAFIA && player.role === ROLES.MAFIA) {
+            this.nightActions.mafiaAction[playerId] = targetId;
+        } else if (this.phase === PHASES.NIGHT_DOCTOR && player.role === ROLES.DOCTOR) {
+            this.nightActions.doctorTarget = targetId;
+        } else if (this.phase === PHASES.NIGHT_DETECTIVE && player.role === ROLES.DETECTIVE) {
+            this.nightActions.detectiveTarget = targetId;
+            const target = this.players.find(p => p.id === targetId);
+            this.nightActions.detectiveResult = target ? { id: targetId, role: target.role } : null;
         } else if (this.phase === PHASES.DAY_VOTING) {
             this.votes[playerId] = targetId;
         }
@@ -89,11 +89,19 @@ class GameState {
         switch (this.phase) {
             case PHASES.LOBBY:
                 this.assignRoles();
-                this.phase = PHASES.NIGHT_ACTION;
+                this.phase = PHASES.NIGHT_MAFIA;
                 this.dayCount = 1;
                 break;
 
-            case PHASES.NIGHT_ACTION:
+            case PHASES.NIGHT_MAFIA:
+                this.phase = PHASES.NIGHT_DOCTOR;
+                break;
+
+            case PHASES.NIGHT_DOCTOR:
+                this.phase = PHASES.NIGHT_DETECTIVE;
+                break;
+
+            case PHASES.NIGHT_DETECTIVE:
                 this.processNightActions();
                 this.phase = PHASES.DAY_TALKING;
                 this.votes = {};
@@ -106,7 +114,7 @@ class GameState {
             case PHASES.DAY_VOTING:
                 this.processVotingResults();
                 if (!this.checkWinConditions()) {
-                    this.phase = PHASES.NIGHT_ACTION;
+                    this.phase = PHASES.NIGHT_MAFIA;
                     this.dayCount++;
                 } else {
                     this.phase = PHASES.GAME_OVER;
@@ -193,20 +201,29 @@ class GameState {
         const requester = this.players.find(p => p.id === playerId);
         if (!requester) return null;
 
+        const isMafiaTurn = this.phase === PHASES.NIGHT_MAFIA && requester.role === ROLES.MAFIA;
+        const isDoctorTurn = this.phase === PHASES.NIGHT_DOCTOR && requester.role === ROLES.DOCTOR;
+        const isDetectiveTurn = this.phase === PHASES.NIGHT_DETECTIVE && requester.role === ROLES.DETECTIVE;
+        const isVotingTurn = this.phase === PHASES.DAY_VOTING && requester.isAlive;
+        const isLobbyHost = this.phase === PHASES.LOBBY && this.players[0]?.id === playerId;
+
+        // Logic: once he/they choose something they can advance.
+        let canAdvance = false;
+        if (isMafiaTurn) canAdvance = Object.keys(this.nightActions.mafiaAction).length > 0;
+        if (isDoctorTurn) canAdvance = !!this.nightActions.doctorTarget;
+        if (isDetectiveTurn) canAdvance = !!this.nightActions.detectiveTarget;
+        if (isVotingTurn) canAdvance = !!this.votes[playerId];
+        if (isLobbyHost) canAdvance = this.players.length >= 4;
+        if (this.phase === PHASES.DAY_TALKING) canAdvance = isLobbyHost; // Host controls discussion time
+
         return {
             roomId: this.roomId,
             phase: this.phase,
             dayCount: this.dayCount,
             players: this.players.map(p => {
                 const base = { id: p.id, name: p.name, isAlive: p.isAlive };
-                // Mafia see each other
-                if (requester.role === ROLES.MAFIA && p.role === ROLES.MAFIA) {
-                    base.role = ROLES.MAFIA;
-                }
-                // Always see your own role
-                if (p.id === playerId) {
-                    base.role = p.role;
-                }
+                if (requester.role === ROLES.MAFIA && p.role === ROLES.MAFIA) base.role = ROLES.MAFIA;
+                if (p.id === playerId) base.role = p.role;
                 return base;
             }),
             graveyard: this.graveyard,
@@ -215,9 +232,10 @@ class GameState {
             messages: this.messages.filter(m =>
                 m.type === 'public' || (m.type === 'mafia' && requester.role === ROLES.MAFIA)
             ),
-            // Only detective gets their result
             investigation: (requester.role === ROLES.DETECTIVE) ? this.nightActions.detectiveResult : null,
-            votes: this.phase === PHASES.DAY_VOTING ? this.votes : {}
+            votes: this.phase === PHASES.DAY_VOTING ? this.votes : {},
+            canAdvance,
+            isYourTurn: isMafiaTurn || isDoctorTurn || isDetectiveTurn || isVotingTurn || isLobbyHost
         };
     }
 }
