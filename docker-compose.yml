@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  omerta-app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
