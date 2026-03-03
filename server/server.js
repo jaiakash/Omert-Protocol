@@ -18,14 +18,29 @@ const io = new Server(server, {
     },
 });
 
+const fs = require('fs');
+
 // Serve Static Frontend (in Production)
 const clientPath = path.join(__dirname, '../client/dist');
-app.use(express.static(clientPath));
+if (fs.existsSync(clientPath)) {
+    console.log(`📡 Serving static files from: ${clientPath}`);
+    app.use(express.static(clientPath));
 
-// Fallback to index.html for SPA routing
-app.get('*', (req, res) => {
-    res.sendFile(path.join(clientPath, 'index.html'));
-});
+    // Fallback to index.html for SPA routing
+    app.get('*', (req, res) => {
+        const indexPath = path.join(clientPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).send('Frontend build not found. Run "npm run build" in the client directory.');
+        }
+    });
+} else {
+    console.log('⚠️ Static frontend build not found. API only mode active.');
+    app.get('/', (req, res) => {
+        res.send('Omertà Protocol Server is running. (Frontend not found - use dev server on port 5173)');
+    });
+}
 
 const PORT = process.env.PORT || 3001;
 

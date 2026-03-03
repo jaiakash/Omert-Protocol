@@ -43,7 +43,7 @@ function App() {
   const onSendChat = (e) => {
     e.preventDefault();
     if (message.trim()) {
-      const type = (myPlayer?.role === 'Mafia' && roomState?.phase === 'Night (Hidden Actions)') ? 'mafia' : 'public';
+      const type = (myPlayer?.role === 'Mafia' && roomState?.phase && roomState.phase.includes('Night')) ? 'mafia' : 'public';
       sendMessage(currentRoom, message, type);
       setMessage('');
     }
@@ -125,7 +125,7 @@ function App() {
             {roomState?.phase === 'Day (Voting)' && player.isAlive && player.id !== myPlayer?.id && (
               <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: '#333', color: 'white' }} onClick={() => handleAction(player.id)}>VOTE</button>
             )}
-            {roomState?.phase === 'Night (Hidden Actions)' && player.isAlive && player.id !== myPlayer?.id && (
+            {roomState?.phase && roomState.phase.includes('Night') && player.isAlive && player.id !== myPlayer?.id && (
               myPlayer?.role === 'Mafia' ? <button className="btn btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }} onClick={() => handleAction(player.id)}>ELIMINATE</button> :
                 myPlayer?.role === 'Doctor' ? <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--success)', color: 'white' }} onClick={() => handleAction(player.id)}>PROTECT</button> :
                   myPlayer?.role === 'Detective' ? <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--secondary)', color: 'white' }} onClick={() => handleAction(player.id)}>INVESTIGATE</button> : null
@@ -162,12 +162,17 @@ function App() {
             </div>
           </div>
 
-          <div className="card" style={{ borderLeft: `4px solid ${roomState?.phase.includes('Night') ? 'var(--primary)' : 'var(--secondary)'}`, background: 'rgba(31, 31, 35, 0.4)', backdropFilter: 'blur(10px)' }}>
-            {roomState?.phase === 'Lobby' ? (
+          <div className="card" style={{ borderLeft: `4px solid ${roomState?.phase?.includes('Night') ? 'var(--primary)' : 'var(--secondary)'}`, background: 'rgba(31, 31, 35, 0.4)', backdropFilter: 'blur(10px)' }}>
+            {!roomState ? (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div className="spinner" style={{ marginBottom: '1rem' }}></div>
+                <p style={{ color: 'var(--text-dim)' }}>Establishing secure connection to NODE...</p>
+              </div>
+            ) : roomState?.phase === 'Lobby' ? (
               <div style={{ textAlign: 'center', padding: '3rem' }}>
                 <p style={{ marginBottom: '2rem', color: 'var(--text-dim)', fontSize: '1.1rem' }}>Minimum 4 operatives required for protocol initiation.</p>
-                {roomState.isYourTurn ? (
-                  <button className="btn btn-primary" disabled={!roomState.canAdvance} style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', opacity: roomState.canAdvance ? 1 : 0.5 }} onClick={() => startGame(currentRoom)}>
+                {roomState?.isYourTurn ? (
+                  <button className="btn btn-primary" disabled={!roomState?.canAdvance} style={{ padding: '1rem 2.5rem', fontSize: '1.1rem', opacity: roomState?.canAdvance ? 1 : 0.5 }} onClick={() => startGame(currentRoom)}>
                     <Play size={20} inline style={{ marginRight: '10px' }} />
                     INITIATE PROTOCOL
                   </button>
@@ -177,21 +182,21 @@ function App() {
               </div>
             ) : roomState?.phase === 'Game Over' ? (
               <div style={{ textAlign: 'center', padding: '3rem' }}>
-                <h2 style={{ fontSize: '3rem', color: roomState.winner === 'Mafia' ? 'var(--danger)' : 'var(--success)', marginBottom: '1rem' }}>{roomState.winner.toUpperCase()} VICTORIOUS</h2>
+                <h2 style={{ fontSize: '3rem', color: roomState?.winner === 'Mafia' ? 'var(--danger)' : 'var(--success)', marginBottom: '1rem' }}>{roomState?.winner?.toUpperCase()} VICTORIOUS</h2>
                 <button className="btn btn-primary" onClick={() => window.location.reload()}>RESET SYSTEM</button>
               </div>
             ) : (
               <div style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center' }}>
                 <div style={{ marginBottom: '2rem' }}>
-                  {roomState?.phase.includes('Night') ? <Skull size={64} color="var(--primary)" /> : <Users size={64} color="var(--secondary)" />}
+                  {roomState?.phase?.includes('Night') ? <Skull size={64} color="var(--primary)" /> : <Users size={64} color="var(--secondary)" />}
                 </div>
 
                 <h2 style={{ marginBottom: '1rem' }}>
-                  {roomState.isYourTurn ? 'YOUR ACTION REQUIRED' : 'AWAITING OPERATIVE ACTION'}
+                  {roomState?.isYourTurn ? 'YOUR ACTION REQUIRED' : 'AWAITING OPERATIVE ACTION'}
                 </h2>
 
                 <p style={{ maxWidth: '500px', color: 'var(--text-dim)', marginBottom: '2rem' }}>
-                  {roomState.isYourTurn
+                  {roomState?.isYourTurn
                     ? "The protocol relies on your specific designation. Take your action to proceed."
                     : "The system is locked while other operatives finalize their hidden maneuvers."}
                 </p>
@@ -199,16 +204,16 @@ function App() {
                 {roomState?.investigation && (
                   <div className="card" style={{ background: '#000', border: '1px solid var(--secondary)', color: 'var(--secondary)', padding: '1rem', width: '100%' }}>
                     <ShieldAlert size={16} inline style={{ marginRight: '8px' }} />
-                    INTEL REVEALED: Operative is <strong>{roomState.investigation.role.toUpperCase()}</strong>
+                    INTEL REVEALED: Operative is <strong>{roomState?.investigation?.role?.toUpperCase()}</strong>
                   </div>
                 )}
 
-                {roomState.isYourTurn && (
+                {roomState?.isYourTurn && (
                   <button
                     className="btn btn-primary"
-                    disabled={!roomState.canAdvance}
+                    disabled={!roomState?.canAdvance}
                     onClick={() => nextPhase(currentRoom)}
-                    style={{ marginTop: '2rem', opacity: roomState.canAdvance ? 1 : 0.5 }}
+                    style={{ marginTop: '2rem', opacity: roomState?.canAdvance ? 1 : 0.5 }}
                   >
                     ADVANCE CLOCK {'->'}
                   </button>
@@ -239,7 +244,7 @@ function App() {
             <MessageSquare size={18} color="var(--text-dim)" />
             <span style={{ fontWeight: 800, fontSize: '0.8rem', letterSpacing: '2px' }}>SECURE CHANNEL</span>
           </div>
-          {myPlayer?.role === 'Mafia' && roomState?.phase === 'Night (Hidden Actions)' && <span className="badge badge-mafia" style={{ fontSize: '0.6rem' }}>MAFIA COMMS</span>}
+          {myPlayer?.role === 'Mafia' && roomState?.phase && roomState.phase.includes('Night') && <span className="badge badge-mafia" style={{ fontSize: '0.6rem' }}>MAFIA COMMS</span>}
         </div>
 
         <div style={{ flex: 1, padding: '1.2rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
