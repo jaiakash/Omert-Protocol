@@ -94,11 +94,12 @@ class GameState {
                 break;
 
             case PHASES.NIGHT_MAFIA:
-                this.phase = PHASES.NIGHT_DOCTOR;
+                // Skip Doctor/Detective night phases if those role-holders are dead
+                this._advanceNightPhase(false);
                 break;
 
             case PHASES.NIGHT_DOCTOR:
-                this.phase = PHASES.NIGHT_DETECTIVE;
+                this._advanceNightPhase(true);
                 break;
 
             case PHASES.NIGHT_DETECTIVE:
@@ -127,6 +128,22 @@ class GameState {
         return true;
     }
 
+    // Advance from a Mafia/Doctor night sub-phase to the next applicable one,
+    // skipping phases whose role-holder is dead. skipDoctor=true when called
+    // from NIGHT_DOCTOR (Doctor phase already done, don't re-enter it).
+    _advanceNightPhase(skipDoctor) {
+        if (!skipDoctor) {
+            const aliveDoctor = this.players.find(p => p.role === ROLES.DOCTOR && p.isAlive);
+            if (aliveDoctor) { this.phase = PHASES.NIGHT_DOCTOR; return; }
+        }
+        const aliveDetective = this.players.find(p => p.role === ROLES.DETECTIVE && p.isAlive);
+        if (aliveDetective) { this.phase = PHASES.NIGHT_DETECTIVE; return; }
+        // No night roles left – process the night and move to day
+        this.processNightActions();
+        this.phase = PHASES.DAY_TALKING;
+        this.votes = {};
+    }
+
     processNightActions() {
         // Determine Mafia target (plurality or random if tied)
         const mafiaVotes = Object.values(this.nightActions.mafiaAction);
@@ -152,10 +169,10 @@ class GameState {
             }
         }
 
-        // Reset actions but keep detective result for the detective's view in the next phase if needed
-        // Actually, we clear it and the server should send it once. 
+        // Reset night actions; preserve detectiveResult for the detective's view during the day
         this.nightActions.mafiaAction = {};
         this.nightActions.doctorTarget = null;
+        this.nightActions.detectiveTarget = null;
     }
 
     processVotingResults() {
@@ -201,20 +218,24 @@ class GameState {
         const requester = this.players.find(p => p.id === playerId);
         if (!requester) return null;
 
-        const isMafiaTurn = this.phase === PHASES.NIGHT_MAFIA && requester.role === ROLES.MAFIA;
-        const isDoctorTurn = this.phase === PHASES.NIGHT_DOCTOR && requester.role === ROLES.DOCTOR;
-        const isDetectiveTurn = this.phase === PHASES.NIGHT_DETECTIVE && requester.role === ROLES.DETECTIVE;
-        const isVotingTurn = this.phase === PHASES.DAY_VOTING && requester.isAlive;
-        const isLobbyHost = this.phase === PHASES.LOBBY && this.players[0]?.id === playerId;
+        const isHost = this.players[0]?.id === playerId; // First player is host for all phases
+        const isMafiaTurn = this.phase === PHASES.NIGHT_MAFIA && requester.role === ROLES.MAFIA && requester.isAlive;
+        const isDoctorTurn = this.phase === PHASES.NIGHT_DOCTOR && requester.role === ROLES.DOCTOR && requester.isAlive;
+        const isDetectiveTurn = this.phase === PHASES.NIGHT_DETECTIVE && requester.role === ROLES.DETECTIVE && requester.isAlive;
+        const isLobbyHost = isHost && this.phase === PHASES.LOBBY;
 
         // Logic: once he/they choose something they can advance.
         let canAdvance = false;
         if (isMafiaTurn) canAdvance = Object.keys(this.nightActions.mafiaAction).length > 0;
         if (isDoctorTurn) canAdvance = !!this.nightActions.doctorTarget;
         if (isDetectiveTurn) canAdvance = !!this.nightActions.detectiveTarget;
-        if (isVotingTurn) canAdvance = !!this.votes[playerId];
         if (isLobbyHost) canAdvance = this.players.length >= 4;
-        if (this.phase === PHASES.DAY_TALKING) canAdvance = isLobbyHost; // Host controls discussion time
+        if (this.phase === PHASES.DAY_TALKING && isHost) canAdvance = true; // Host advances discussion
+        if (this.phase === PHASES.DAY_VOTING && isHost) {
+            // Host can advance once a majority of alive players have voted
+            const alivePlayers = this.players.filter(p => p.isAlive).length;
+            canAdvance = Object.keys(this.votes).length >= Math.ceil(alivePlayers / 2);
+        }
 
         return {
             roomId: this.roomId,
@@ -235,7 +256,9 @@ class GameState {
             investigation: (requester.role === ROLES.DETECTIVE) ? this.nightActions.detectiveResult : null,
             votes: this.phase === PHASES.DAY_VOTING ? this.votes : {},
             canAdvance,
-            isYourTurn: isMafiaTurn || isDoctorTurn || isDetectiveTurn || isVotingTurn || isLobbyHost
+            isYourTurn: isMafiaTurn || isDoctorTurn || isDetectiveTurn || isLobbyHost
+                || (this.phase === PHASES.DAY_TALKING && isHost)
+                || (this.phase === PHASES.DAY_VOTING && isHost)
         };
     }
 }

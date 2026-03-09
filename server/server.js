@@ -78,10 +78,13 @@ io.on('connection', (socket) => {
     });
 
     socket.on('start_game', ({ roomId }) => {
-        const gameState = RoomManager.getRoom(roomId);
-        if (gameState) {
-            gameState.nextPhase();
-            broadcastState(roomId);
+        const room = RoomManager.getRoom(roomId);
+        if (room) {
+            const playerState = room.getFilteredState(socket.id);
+            if (playerState && playerState.isYourTurn && playerState.canAdvance) {
+                room.nextPhase();
+                broadcastState(roomId);
+            }
         }
     });
 
@@ -115,8 +118,11 @@ io.on('connection', (socket) => {
     socket.on('request_next_phase', ({ roomId }) => {
         const room = RoomManager.getRoom(roomId);
         if (room) {
-            room.nextPhase();
-            broadcastState(roomId);
+            const playerState = room.getFilteredState(socket.id);
+            if (playerState && playerState.isYourTurn && playerState.canAdvance) {
+                room.nextPhase();
+                broadcastState(roomId);
+            }
         }
     });
 });

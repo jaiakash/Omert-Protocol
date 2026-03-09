@@ -122,10 +122,10 @@ function App() {
               <div style={{ fontSize: '0.95rem', fontWeight: 500 }}>{player.name} {player.id === myPlayer?.id ? '(YOU)' : ''}</div>
               {player.role && <div style={{ fontSize: '0.65rem', color: player.role === 'Mafia' ? 'var(--primary)' : 'var(--secondary)', textTransform: 'uppercase' }}>{player.role}</div>}
             </div>
-            {roomState?.phase === 'Day (Voting)' && player.isAlive && player.id !== myPlayer?.id && (
+            {roomState?.phase === 'Day (Voting)' && myPlayer?.isAlive && player.isAlive && player.id !== myPlayer?.id && (
               <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: '#333', color: 'white' }} onClick={() => handleAction(player.id)}>VOTE</button>
             )}
-            {roomState?.phase && roomState.phase.includes('Night') && player.isAlive && player.id !== myPlayer?.id && (
+            {roomState?.phase && roomState.phase.includes('Night') && myPlayer?.isAlive && player.isAlive && player.id !== myPlayer?.id && (
               myPlayer?.role === 'Mafia' ? <button className="btn btn-primary" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem' }} onClick={() => handleAction(player.id)}>ELIMINATE</button> :
                 myPlayer?.role === 'Doctor' ? <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--success)', color: 'white' }} onClick={() => handleAction(player.id)}>PROTECT</button> :
                   myPlayer?.role === 'Detective' ? <button className="btn" style={{ padding: '0.3rem 0.6rem', fontSize: '0.7rem', background: 'var(--secondary)', color: 'white' }} onClick={() => handleAction(player.id)}>INVESTIGATE</button> : null
